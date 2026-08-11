@@ -90,6 +90,7 @@ function loadConfig(env = process.env) {
   const refreshIntervalSeconds = resolveInterval(env.REFRESH_INTERVAL_SECONDS);
   const apiDownAlarmEnabled = parseBool(env.API_DOWN_ALARM_ENABLED, true);
   const telegramApiUrl = (env.TELEGRAM_API_URL || "").trim();
+  const discordWebhookUrl = (env.DISCORD_WEBHOOK_URL || "").trim();
   const skuFeedUrl = (env.SKU_FEED_URL || "").trim();
   const port = parseInt(env.PORT ?? "8080", 10) || 8080;
 
@@ -99,6 +100,7 @@ function loadConfig(env = process.env) {
     refreshIntervalSeconds,
     apiDownAlarmEnabled,
     telegramApiUrl,
+    discordWebhookUrl,
     skuFeedUrl,
     port,
   };

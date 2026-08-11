@@ -97,20 +97,59 @@ async function sendTelegramNotification(message) {
   }
 }
 
-// Sent once on every startup so a misconfigured TELEGRAM_API_URL is caught
-// immediately instead of silently failing on the first real alert.
+async function sendDiscordNotification(message) {
+  if (!config.discordWebhookUrl) return false;
+  try {
+    const res = await fetchWithTimeout(
+      config.discordWebhookUrl,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: `**Notify-FE Alarm:** ${message}` }),
+      },
+      5000,
+    );
+    // Discord webhooks return 204 No Content on success.
+    if (!res.ok) {
+      logError(`Discord notification failed with HTTP ${res.status}`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    logError(`Discord notification error: ${err.message}`);
+    return false;
+  }
+}
+
+// Fans a single message out to every configured channel. Channels that
+// aren't configured are silently skipped (their send*Notification already
+// no-ops and returns false).
+async function notifyAll(message) {
+  const [telegramOk, discordOk] = await Promise.all([
+    sendTelegramNotification(message),
+    sendDiscordNotification(message),
+  ]);
+  return { telegramOk, discordOk };
+}
+
+// Sent once on every startup so a misconfigured TELEGRAM_API_URL/
+// DISCORD_WEBHOOK_URL is caught immediately instead of silently failing on
+// the first real alert.
 async function sendStartupTestNotification() {
-  if (!config.telegramApiUrl) return;
-  log("Sending startup test notification to Telegram...");
-  const ok = await sendTelegramNotification(
+  if (!config.telegramApiUrl && !config.discordWebhookUrl) return;
+  log("Sending startup test notification...");
+  const { telegramOk, discordOk } = await notifyAll(
     `✅ Test notification - notify-fe headless service started (${config.locale}, watching ${config.gpuModels.join(", ")}). Shop: ${marketplaceUrl(config.locale)}`,
   );
-  if (ok) {
-    log("Startup test notification sent successfully.");
-  } else {
-    warn(
-      "Startup test notification FAILED to send. Double-check TELEGRAM_API_URL.",
-    );
+  if (config.telegramApiUrl) {
+    telegramOk
+      ? log("Telegram test notification sent successfully.")
+      : warn("Telegram test notification FAILED. Double-check TELEGRAM_API_URL.");
+  }
+  if (config.discordWebhookUrl) {
+    discordOk
+      ? log("Discord test notification sent successfully.")
+      : warn("Discord test notification FAILED. Double-check DISCORD_WEBHOOK_URL.");
   }
 }
 
@@ -152,7 +191,7 @@ async function pollGpu(gpuName) {
     const shopUrl = productUrl || marketplaceUrl(config.locale);
     const msg = `🎯 ${gpuName} is now in stock! ${shopUrl}`;
     log(msg);
-    void sendTelegramNotification(msg);
+    void notifyAll(msg);
   } else if (prev.available && !isActive) {
     log(`${gpuName} is no longer in stock (${config.locale}).`);
   }
@@ -165,7 +204,7 @@ async function pollGpu(gpuName) {
   ) {
     const msg = `⚠️ API became unreachable for ${gpuName}`;
     warn(msg);
-    void sendTelegramNotification(msg);
+    void notifyAll(msg);
   } else if (
     config.apiDownAlarmEnabled &&
     !prev.apiReachable &&
@@ -173,7 +212,7 @@ async function pollGpu(gpuName) {
   ) {
     const msg = `✅ API is reachable again for ${gpuName}`;
     log(msg);
-    void sendTelegramNotification(msg);
+    void notifyAll(msg);
   }
 
   gpuState.set(gpuName, { available: isActive, apiReachable });
@@ -223,6 +262,9 @@ async function start() {
   );
   log(
     `  Telegram notifications: ${config.telegramApiUrl ? "enabled" : "disabled"}`,
+  );
+  log(
+    `  Discord notifications : ${config.discordWebhookUrl ? "enabled" : "disabled"}`,
   );
   log(
     `  Dynamic SKU feed      : ${config.skuFeedUrl ? config.skuFeedUrl : "disabled (using static SKU table)"}`,
