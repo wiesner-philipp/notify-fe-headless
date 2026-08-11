@@ -6,6 +6,13 @@ const { loadConfig, skuPatterns, DEFAULT_SKUS } = require("./config");
 const NVIDIA_API_BASE =
   "https://api.store.nvidia.com/partner/v1/feinventory?skus=";
 
+// General "graphics cards" shop listing for a given locale/country, used as
+// a fallback link when NVIDIA's API doesn't return an item-specific
+// product_url (e.g. right before a drop, or for older/EOL models).
+function marketplaceUrl(locale) {
+  return `https://marketplace.nvidia.com/${locale}/consumer/graphics-cards/?locale=${locale}&page=1&limit=12&manufacturer=NVIDIA`;
+}
+
 let config;
 try {
   config = loadConfig();
@@ -96,7 +103,7 @@ async function sendStartupTestNotification() {
   if (!config.telegramApiUrl) return;
   log("Sending startup test notification to Telegram...");
   const ok = await sendTelegramNotification(
-    `✅ Test notification - notify-fe headless service started (${config.locale}, watching ${config.gpuModels.join(", ")})`,
+    `✅ Test notification - notify-fe headless service started (${config.locale}, watching ${config.gpuModels.join(", ")}). Shop: ${marketplaceUrl(config.locale)}`,
   );
   if (ok) {
     log("Startup test notification sent successfully.");
@@ -142,7 +149,8 @@ async function pollGpu(gpuName) {
   }
 
   if (!prev.available && isActive) {
-    const msg = `🎯 ${gpuName} is now in stock! ${productUrl ?? ""}`.trim();
+    const shopUrl = productUrl || marketplaceUrl(config.locale);
+    const msg = `🎯 ${gpuName} is now in stock! ${shopUrl}`;
     log(msg);
     void sendTelegramNotification(msg);
   } else if (prev.available && !isActive) {
