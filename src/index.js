@@ -5,7 +5,6 @@ const { loadConfig, skuPatterns, DEFAULT_SKUS } = require("./config");
 
 const NVIDIA_API_BASE =
   "https://api.store.nvidia.com/partner/v1/feinventory?skus=";
-const SKU_FEED_MIN_INTERVAL_MS = 15000;
 
 let config;
 try {
@@ -75,16 +74,36 @@ function getSku(gpuName) {
 // --- Telegram -----------------------------------------------------------
 
 async function sendTelegramNotification(message) {
-  if (!config.telegramApiUrl) return;
+  if (!config.telegramApiUrl) return false;
   try {
     const url = new URL(config.telegramApiUrl);
     url.searchParams.set("text", `Notify-FE Alarm: ${message}`);
     const res = await fetchWithTimeout(url.toString(), {}, 5000);
     if (!res.ok) {
       logError(`Telegram notification failed with HTTP ${res.status}`);
+      return false;
     }
+    return true;
   } catch (err) {
     logError(`Telegram notification error: ${err.message}`);
+    return false;
+  }
+}
+
+// Sent once on every startup so a misconfigured TELEGRAM_API_URL is caught
+// immediately instead of silently failing on the first real alert.
+async function sendStartupTestNotification() {
+  if (!config.telegramApiUrl) return;
+  log("Sending startup test notification to Telegram...");
+  const ok = await sendTelegramNotification(
+    `✅ Test notification - notify-fe headless service started (${config.locale}, watching ${config.gpuModels.join(", ")})`,
+  );
+  if (ok) {
+    log("Startup test notification sent successfully.");
+  } else {
+    warn(
+      "Startup test notification FAILED to send. Double-check TELEGRAM_API_URL.",
+    );
   }
 }
 
@@ -205,9 +224,15 @@ async function start() {
     log(`Health endpoint listening on :${config.port}/healthz`),
   );
 
+  await sendStartupTestNotification();
+
   if (config.skuFeedUrl) {
     await refreshSkuFeed();
-    skuFeedTimer = setInterval(refreshSkuFeed, SKU_FEED_MIN_INTERVAL_MS);
+    // Same cadence as the NVIDIA store poll, per REFRESH_INTERVAL_SECONDS.
+    skuFeedTimer = setInterval(
+      refreshSkuFeed,
+      config.refreshIntervalSeconds * 1000,
+    );
   }
 
   await pollAll();
