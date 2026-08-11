@@ -1,6 +1,6 @@
 services:
   notify-fe-headless:
-    image: ghcr.io/wiesner-philipp/error-pages:latest
+    image: ghcr.io/wiesner-philipp/notify-fe-headless:latest
     container_name: notify-fe-headless
     restart: unless-stopped
     ports:
