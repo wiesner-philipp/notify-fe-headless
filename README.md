@@ -12,15 +12,15 @@ process (~250 lines) built for running unattended in a container.
 
 ## Configuration (environment variables)
 
-| Variable                    | Required | Default            | Description |
-|------------------------------|----------|---------------------|-------------|
-| `COUNTRY`                    | no       | `United Kingdom`   | Country name or locale code. Accepts either, e.g. `Deutschland` or `de-de`. See the table below for valid values. |
-| `REFRESH_INTERVAL_SECONDS`   | no       | `30`                | How often to poll NVIDIA's API, in seconds. Values below 5 are clamped to 5 with a warning — going much lower risks getting rate-limited. |
-| `API_DOWN_ALARM_ENABLED`     | no       | `true`              | `true`/`false`. Sends a Telegram alert when the API becomes unreachable (and when it recovers). |
-| `TELEGRAM_API_URL`           | no       | *(empty = disabled)*| Telegram Bot API URL, without `text`/`parse_mode` params: `https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<CHAT_ID>`. See [setup guide](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a). |
-| `GPU_MODELS`                 | no       | `5080,5090`         | Comma-separated list of models to monitor. Valid: `5090,5080,5070,4090,4080S,4070S`. |
-| `SKU_FEED_URL`                | no       | *(empty = disabled)*| Optional URL to a live SKU-update feed. See "About SKU freshness" below. |
-| `PORT`                        | no       | `8080`               | Port for the `/healthz` endpoint. |
+| Variable                    | Default            | Description |
+|------------------------------|---------------------|-------------|
+| `COUNTRY`                    | `de-de`   | Country name or locale code. Accepts either, e.g. `Deutschland` or `de-de`. See the table below for valid values. |
+| `REFRESH_INTERVAL_SECONDS`   | `30`                | How often to poll NVIDIA's API, in seconds. Values below 5 are clamped to 5 with a warning — going much lower risks getting rate-limited. |
+| `API_DOWN_ALARM_ENABLED`     | `true`              | `true`/`false`. Sends a Telegram alert when the API becomes unreachable (and when it recovers). |
+| `TELEGRAM_API_URL`           | *(empty = disabled)*| Telegram Bot API URL, without `text`/`parse_mode` params: `https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<CHAT_ID>`. See [setup guide](https://gist.github.com/nafiesl/4ad622f344cd1dc3bb1ecbe468ff9f8a). |
+| `GPU_MODELS`                 | `5080,5090`         | Comma-separated list of models to monitor. Valid: `5090,5080,5070,4090,4080S,4070S`. |
+| `SKU_FEED_URL`                | *(empty = disabled)*| Optional URL to a live SKU-update feed. See "About SKU freshness" below. |
+| `PORT`                        | `8080`               | Port for the `/healthz` endpoint. |
 
 ### Valid `COUNTRY` values
 
@@ -38,7 +38,7 @@ immediately.
 
 ```bash
 docker run -d --name notify-fe \
-  -e COUNTRY="Deutschland" \
+  -e COUNTRY="de-de" \
   -e REFRESH_INTERVAL_SECONDS=30 \
   -e API_DOWN_ALARM_ENABLED=true \
   -e TELEGRAM_API_URL="https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<CHAT_ID>" \
@@ -87,13 +87,11 @@ usually just updating `src/data/sku_patterns.json` from the upstream repo.
 
 ## What's different from the original web app
 
-- No browser UI, sound, region-switcher, or auto-opening shop tabs — this is a background poller.
+- No browser UI, sound, region-switcher, or auto-opening shop tabs — this is a background poller, useful if you have a server running somewhere.
 - Telegram messages include the product URL directly instead of the maintainer's browser
   redirect/shop-link service, since that's tied to the hosted web app.
 - Only Telegram is supported as a notification channel (the original also played a local sound).
 - Live SKU updates are opt-in rather than always-on (see above).
 
-## Logs
-
-Everything is logged to stdout with ISO timestamps — plug straight into `docker logs`, Loki,
-CloudWatch, etc.
+## Support
+If this tool got you a GPU: Great! You can consider buying me a Coffee [ko-fi.com/philippwiesner](https://ko-fi.com/philippwiesner). Definitely not mandatory tho! :)
