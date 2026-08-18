@@ -73,14 +73,6 @@ Edit the .env File to your likings, then:
 docker compose up -d
 ```
 
-## Continuous deployment
-
-`.github/workflows/docker-publish.yml` builds and pushes the image to `ghcr.io/wiesner-philipp/notify-fe-headless:latest` on every push to `main`, using the repo's built-in `GITHUB_TOKEN` — no PAT or manual `docker push` needed.
-
-The workflow needs no extra setup beyond the default repo permissions. If pushes ever fail with a `denied` error, check Settings → Actions → General → Workflow permissions is set to "Read and write permissions" (or that the job-level `permissions: packages: write` in the workflow isn't being overridden by an org policy).
-
-The package is private by default the first time it's pushed. To make it public: your GitHub profile → Packages → `notify-fe-headless` → Package settings → Change visibility.
-
 ## Health check
 
 The container exposes `GET /healthz` on `PORT` (default `8080`), returning the current configuration and last-known state of each monitored GPU:
