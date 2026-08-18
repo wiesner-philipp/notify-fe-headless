@@ -84,6 +84,18 @@ function resolveInterval(rawInput) {
   return value;
 }
 
+const NTFY_PRIORITIES = ["min", "low", "default", "high", "max", "urgent"];
+
+function resolveNtfyPriority(rawInput) {
+  const input = (rawInput || "").trim().toLowerCase();
+  if (!input) return "";
+  if (NTFY_PRIORITIES.includes(input)) return input;
+  console.warn(
+    `[config] Unknown NTFY_PRIORITY "${rawInput}", ignoring it. Valid values: ${NTFY_PRIORITIES.join(", ")}.`,
+  );
+  return "";
+}
+
 function loadConfig(env = process.env) {
   const locale = resolveLocale(env.COUNTRY);
   const gpuModels = resolveGpuModels(env.GPU_MODELS);
@@ -91,6 +103,9 @@ function loadConfig(env = process.env) {
   const apiDownAlarmEnabled = parseBool(env.API_DOWN_ALARM_ENABLED, true);
   const telegramApiUrl = (env.TELEGRAM_API_URL || "").trim();
   const discordWebhookUrl = (env.DISCORD_WEBHOOK_URL || "").trim();
+  const ntfyUrl = (env.NTFY_URL || "").trim();
+  const ntfyToken = (env.NTFY_TOKEN || "").trim();
+  const ntfyPriority = resolveNtfyPriority(env.NTFY_PRIORITY);
   const skuFeedUrl = (env.SKU_FEED_URL || "").trim();
   const port = parseInt(env.PORT ?? "8080", 10) || 8080;
 
@@ -101,6 +116,9 @@ function loadConfig(env = process.env) {
     apiDownAlarmEnabled,
     telegramApiUrl,
     discordWebhookUrl,
+    ntfyUrl,
+    ntfyToken,
+    ntfyPriority,
     skuFeedUrl,
     port,
   };

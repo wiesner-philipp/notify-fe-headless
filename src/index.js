@@ -121,24 +121,59 @@ async function sendDiscordNotification(message) {
   }
 }
 
+// ntfy.sh (or a self-hosted ntfy server): NTFY_URL is the full topic URL,
+// e.g. https://ntfy.sh/my-topic or https://ntfy.example.com/my-topic.
+// NTFY_TOKEN is only needed for access-controlled topics.
+async function sendNtfyNotification(message) {
+  if (!config.ntfyUrl) return false;
+  try {
+    const headers = {
+      "Content-Type": "text/plain; charset=utf-8",
+      // Title must be ASCII per ntfy's spec; this literal is fine.
+      Title: "Notify-FE Alarm",
+    };
+    if (config.ntfyToken) {
+      headers["Authorization"] = `Bearer ${config.ntfyToken}`;
+    }
+    if (config.ntfyPriority) {
+      headers["Priority"] = config.ntfyPriority;
+    }
+    const res = await fetchWithTimeout(
+      config.ntfyUrl,
+      { method: "POST", headers, body: message },
+      5000,
+    );
+    if (!res.ok) {
+      logError(`ntfy notification failed with HTTP ${res.status}`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    logError(`ntfy notification error: ${err.message}`);
+    return false;
+  }
+}
+
 // Fans a single message out to every configured channel. Channels that
 // aren't configured are silently skipped (their send*Notification already
 // no-ops and returns false).
 async function notifyAll(message) {
-  const [telegramOk, discordOk] = await Promise.all([
+  const [telegramOk, discordOk, ntfyOk] = await Promise.all([
     sendTelegramNotification(message),
     sendDiscordNotification(message),
+    sendNtfyNotification(message),
   ]);
-  return { telegramOk, discordOk };
+  return { telegramOk, discordOk, ntfyOk };
 }
 
 // Sent once on every startup so a misconfigured TELEGRAM_API_URL/
-// DISCORD_WEBHOOK_URL is caught immediately instead of silently failing on
-// the first real alert.
+// DISCORD_WEBHOOK_URL/NTFY_URL is caught immediately instead of silently
+// failing on the first real alert.
 async function sendStartupTestNotification() {
-  if (!config.telegramApiUrl && !config.discordWebhookUrl) return;
+  if (!config.telegramApiUrl && !config.discordWebhookUrl && !config.ntfyUrl)
+    return;
   log("Sending startup test notification...");
-  const { telegramOk, discordOk } = await notifyAll(
+  const { telegramOk, discordOk, ntfyOk } = await notifyAll(
     `✅ Test notification - notify-fe headless service started (${config.locale}, watching ${config.gpuModels.join(", ")}). Shop: ${marketplaceUrl(config.locale)}`,
   );
   if (config.telegramApiUrl) {
@@ -150,6 +185,11 @@ async function sendStartupTestNotification() {
     discordOk
       ? log("Discord test notification sent successfully.")
       : warn("Discord test notification FAILED. Double-check DISCORD_WEBHOOK_URL.");
+  }
+  if (config.ntfyUrl) {
+    ntfyOk
+      ? log("ntfy test notification sent successfully.")
+      : warn("ntfy test notification FAILED. Double-check NTFY_URL/NTFY_TOKEN.");
   }
 }
 
@@ -265,6 +305,9 @@ async function start() {
   );
   log(
     `  Discord notifications : ${config.discordWebhookUrl ? "enabled" : "disabled"}`,
+  );
+  log(
+    `  ntfy notifications    : ${config.ntfyUrl ? config.ntfyUrl : "disabled"}`,
   );
   log(
     `  Dynamic SKU feed      : ${config.skuFeedUrl ? config.skuFeedUrl : "disabled (using static SKU table)"}`,
